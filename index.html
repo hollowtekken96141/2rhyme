@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gym</title>
+  <style>
+    /* Reset margin and padding for mobile-first approach */
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      background-color: #000;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Make sure the game container fills the screen */
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Center the user interface with some mobile-friendly adjustments */
+    #user-interface {
+      position: absolute;
+      bottom: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+      color: white;
+      font-size: 16px;
+    }
+
+    /* Responsive font size for the score and other text */
+    #score-display {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    input, button {
+      font-size: 16px;
+      padding: 8px;
+      margin: 5px 0;
+      width: 80%;  /* Take up most of the available width on mobile */
+      max-width: 300px;
+    }
+
+    button {
+      background-color: #115191;
+      border: none;
+      cursor: pointer;
+      color: white;
+    }
+
+    /* Game over message style */
+    #game-over {
+      color: red;
+      font-size: 54px;
+      font-weight: bold;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <div id="user-interface">
+    <p id="score-display">Score: 0</p>
+    <input type="text" id="user-input" placeholder="What Comes Next?">
+    <button id="check-button">Check</button>
+    <p id="result"></p>
+    <p id="game-over">Dammn Jitt. You really did that.</p>
+  </div>
+
+  <!-- Phaser 3 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+  <script>
+    let game;
+    let gameState = {
+      score: 0,
+      currentWord: '',
+      bestRhyme: '', // Stores the rhyme with the highest score
+      rhymes: [],
+      wordsUsed: [], // Array to track used words
+    };
+
+    let wordList = []; // Initially empty list, to be populated from the API
+    let wordsRemaining = []; // Copy of the word list
+
+    // Fetch a list of common words from the Datamuse API
+    async function fetchWords() {
+      try {
+        const response = await fetch('https://api.datamuse.com/words?sp=*'); // Fetch words from API
+        const data = await response.json();
+
+        if (data.length === 0) {
+          console.error('No words found from the API');
+          wordList = ['time', 'star', 'blue', 'light', 'game']; // Fallback list if the API fails
+        } else {
+          wordList = data.map(item => item.word); // Get the words from the response
+        }
+
+        wordsRemaining = [...wordList]; // Copy of the word list for game play
+        loadNewWord(game.scene.scenes[0]); // Load the first word when data is fetched
+      } catch (error) {
+        console.error('Error fetching words from Datamuse:', error);
+        wordList = ['time', 'star', 'blue', 'light', 'game']; // Fallback words
+        wordsRemaining = [...wordList]; // Copy of the fallback word list for game play
+        loadNewWord(game.scene.scenes[0]); // Load the first word from fallback list
+      }
+    }
+
+    // Fisher-Yates shuffle function
+    function shuffle(array) {
+      let currentIndex = array.length, randomIndex, temporaryValue;
+      while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex -= 1;
+        temporaryValue = array[currentIndex];
+        array[currentIndex] = array[randomIndex];
+        array[randomIndex] = temporaryValue;
+      }
+      return array;
+    }
+
+    // Phaser Game Configuration
+    const config = {
+      type: Phaser.AUTO,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      parent: 'game-container',
+      scene: {
+        preload: preload,
+        create: create,
+        update: update
+      }
+    };
+
+    // Initialize the game
+    function preload() {
+      // Replace with your custom GIF links
+      this.load.image('background', 'https://ibb.co/nMpsyx8'); // Background gif
+      
+    }
+
+    function create() {
+      this.add.image(config.width / 2, config.height / 2, 'background').setOrigin(0.5, 0.5);
+      this.wordText = this.add.text(config.width / 2, config.height / 4, 'Loading...', {
+        font: '48px Arial',
+        fill: '#ffffff',
+      }).setOrigin(0.5);
+
+      document.getElementById('user-input').focus();
+
+      document.getElementById('check-button').addEventListener('click', () => checkWord(this));
+      document.getElementById('user-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          checkWord(this);
+        }
+      });
+
+      fetchWords(); // Fetch words from the API when the game starts
+    }
+
+    function update() {}
+
+    // Fetch rhymes for a given word
+    async function fetchRhymes(word) {
+      try {
+        const response = await fetch(`https://api.datamuse.com/words?rel_rhy=${word}`);
+        const data = await response.json();
+        return data.map(item => ({
+          word: item.word,
+          score: item.score
+        }));
+      } catch (error) {
+        console.error('Error fetching rhymes:', error);
+        return [];
+      }
+    }
+
+    // Load a new word and its rhymes
+    async function loadNewWord(scene) {
+      if (wordsRemaining.length === 0) {
+        document.getElementById('game-over').style.display = 'block';
+        return;
+      }
+
+      gameState.currentWord = wordsRemaining[Math.floor(Math.random() * wordsRemaining.length)];
+      gameState.rhymes = await fetchRhymes(gameState.currentWord);
+
+      // If no rhymes are found, discard this word and continue with the next one
+      if (gameState.rhymes.length === 0) {
+        wordsRemaining.splice(wordsRemaining.indexOf(gameState.currentWord), 1); // Remove the word with no rhymes
+        loadNewWord(scene); // Try loading the next word
+        return;
+      }
+
+      // Get the word with the highest relevance score
+      const highestScoreWord = gameState.rhymes.reduce((max, word) => word.score > max.score ? word : max, { score: -Infinity });
+      gameState.bestRhyme = highestScoreWord.word;
+
+      wordsRemaining.splice(wordsRemaining.indexOf(gameState.currentWord), 1); // Remove the used word
+      animateWord(scene);
+    }
+
+    // Animate the word "throwing" from the bottom
+    function animateWord(scene) {
+      const word = gameState.currentWord;
+      const targetY = config.height / 4;
+      const startY = config.height + 100;
+
+      scene.wordText.setText(word);
+      scene.wordText.setPosition(config.width / 2, startY);
+
+      scene.tweens.add({
+        targets: scene.wordText,
+        y: targetY,
+        ease: 'Power1',
+        duration: 1000,
+        delay: 500,
+      });
+    }
+
+    function random(min, max) {
+      return ~~(Math.random() * (max - min + 1) + min);
+    }
+
+    // Animate the falling word when the user answers correctly
+    function animateFallingWord(scene, word) {
+      const targetY = config.height - 100;
+      const startY = config.height / 4;
+
+      const fallingWord = scene.add.text(config.width / 2, startY, word, {
+        font: '48px Arial',
+        fill: '#ffffff',
+      }).setOrigin(0.5);
+
+      scene.tweens.add({
+        targets: fallingWord,
+        y: random(25, 75),
+        x: random(25, 905),
+        ease: 'Power1',
+        duration: 2000,
+        onComplete: () => {
+          fallingWord.setAlpha(0); // Fade out the word after it falls
+        },
+      });
+    }
+
+    // Function to extract the final vowel from a word
+    function extractFinalVowel(word) {
+      const vowels = ['a', 'e', 'i', 'o', 'u'];
+      for (let i = word.length - 1; i >= 0; i--) {
+        if (vowels.includes(word[i])) {
+          return word[i];
+        }
+      }
+      return ''; // No vowel found
+    }
+
+    // Check if the user's input rhymes with the current word
+    function checkWord(scene) {
+      const userInput = document.getElementById('user-input').value.trim().toLowerCase();
+      const resultElement = document.getElementById('result');
+
+      const currentWordVowel = extractFinalVowel(gameState.currentWord);
+      const userInputVowel = extractFinalVowel(userInput);
+
+      if (currentWordVowel === userInputVowel) {
+        resultElement.textContent = `Correct! "${userInput}" rhymes with "${gameState.currentWord}".`;
+        resultElement.style.color = 'green';
+        gameState.score++;
+        document.getElementById('score-display').textContent = `Score: ${gameState.score}`;
+        animateFallingWord(scene, gameState.currentWord);
+        loadNewWord(scene);
+        
+      } else {
+        gameState.score = 0;
+        document.getElementById('score-display').textContent = `Score: ${gameState.score}`;
+        resultElement.textContent = `Sorry, "${userInput}" does not rhyme with "${gameState.currentWord}".`;
+        resultElement.style.color = 'red';
+
+        scene.tweens.add({
+          targets: scene.wordText,
+          x: '+=20',
+          duration: 100,
+          yoyo: true,
+          repeat: 2,
+          ease: 'Sine.easeInOut',
+        });
+      }
+
+      document.getElementById('user-input').value = '';
+    }
+
+    window.addEventListener('beforeunload', () => {
+      gameState = {};
+      wordsRemaining.length = 0;
+    });
+
+    game = new Phaser.Game(config);
+  </script>
+</body>
+</html>
