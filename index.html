@@ -30,13 +30,18 @@
       text-align: center;
       z-index: 10;
       color: white;
-      font-size: 16px;
+      font-size: 20px;
     }
 
     /* Responsive font size for the score and other text */
     #score-display {
-      font-size: 20px;
+      font-size: 30px;
       margin-bottom: 10px;
+      text-shadow: 
+        0 0 10px #000000,  /* Small glow */
+        0 0 20px #000000,  /* Medium glow */
+        0 0 30px #000000,  /* Large glow */
+        0 0 40px #000000;  /* Extra large glow */
     }
 
     input, button {
@@ -56,7 +61,7 @@
 
     /* Game over message style */
     #game-over {
-      color: red;
+      color: #ffffff;
       font-size: 54px;
       font-weight: bold;
       display: none;
@@ -66,7 +71,7 @@
 <body>
   <div id="game-container"></div>
   <div id="user-interface">
-    <p id="score-display">Score: 0</p>
+    <p id="score-display">Streak: 0</p>
     <input type="text" id="user-input" placeholder="What Comes Next?">
     <button id="check-button">Check</button>
     <p id="result"></p>
@@ -139,16 +144,29 @@
 
     // Initialize the game
     function preload() {
-      // Replace with your custom GIF links
-      this.load.image('background', 'https://ibb.co/nMpsyx8'); // Background gif
-      
+      this.load.image('background', 'https://i.ibb.co/tpRM6VP/Screenshot-2025-01-05-164414.png'); // Background gif
     }
 
     function create() {
-      this.add.image(config.width / 2, config.height / 2, 'background').setOrigin(0.5, 0.5);
+      const background = this.add.image(config.width / 2, config.height / 2, 'background');
+      background.setOrigin(0.5, 0.5);
+
+      // Scale the background to fit the entire screen
+      background.setDisplaySize(config.width, config.height);
+
+      // Create text with a glowing effect
       this.wordText = this.add.text(config.width / 2, config.height / 4, 'Loading...', {
-        font: '48px Arial',
+        font: '100px Arial',
         fill: '#ffffff',
+        stroke: '#600190', // Glowing color 
+        strokeThickness: 6, // Thickness of the glow
+        shadow: {
+          offsetX: 12,
+          offsetY: 12,
+          color: '#ffffff', // Glow color
+          blur: 10,
+          opacity: 0.7
+        }
       }).setOrigin(0.5);
 
       document.getElementById('user-input').focus();
@@ -209,7 +227,7 @@
     // Animate the word "throwing" from the bottom
     function animateWord(scene) {
       const word = gameState.currentWord;
-      const targetY = config.height / 4;
+      const targetY = config.height / 2;
       const startY = config.height + 100;
 
       scene.wordText.setText(word);
@@ -231,11 +249,20 @@
     // Animate the falling word when the user answers correctly
     function animateFallingWord(scene, word) {
       const targetY = config.height - 100;
-      const startY = config.height / 4;
+      const startY = config.height / 2;
 
       const fallingWord = scene.add.text(config.width / 2, startY, word, {
-        font: '48px Arial',
+        font: '100px Arial',
         fill: '#ffffff',
+        stroke: '#600190', // Glowing color 
+        strokeThickness: 6, // Thickness of the glow
+        shadow: {
+          offsetX: 12,
+          offsetY: 12,
+          color: '#ffffff', // Glow color
+          blur: 10,
+          opacity: 0.7
+        }
       }).setOrigin(0.5);
 
       scene.tweens.add({
@@ -273,13 +300,13 @@
         resultElement.textContent = `Correct! "${userInput}" rhymes with "${gameState.currentWord}".`;
         resultElement.style.color = 'green';
         gameState.score++;
-        document.getElementById('score-display').textContent = `Score: ${gameState.score}`;
+        document.getElementById('score-display').textContent = `Streak: ${gameState.score}`;
         animateFallingWord(scene, gameState.currentWord);
         loadNewWord(scene);
         
       } else {
         gameState.score = 0;
-        document.getElementById('score-display').textContent = `Score: ${gameState.score}`;
+        document.getElementById('score-display').textContent = `Streak: ${gameState.score}`;
         resultElement.textContent = `Sorry, "${userInput}" does not rhyme with "${gameState.currentWord}".`;
         resultElement.style.color = 'red';
 
