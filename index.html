@@ -13,6 +13,7 @@
       height: 100%;
       background-color: #000;
       font-family: Arial, sans-serif;
+      touch-action: none; /* Disables double-tap zoom and other touch gestures */
     }
 
     /* Make sure the game container fills the screen */
@@ -244,34 +245,40 @@
       return ~~(Math.random() * (max - min + 1) + min);
     }
 
-    // Animate the falling word when the user answers correctly
-    function animateFallingWord(scene, word) {
+    // Animate ten different falling words when the user answers correctly
+    function animateFallingWords(scene, word) {
       const targetY = config.height - 100;
       const startY = config.height / 2;
 
-      const fallingWord = scene.add.text(config.width / 2, startY, word, {
-        font: '75px Arial',
-        fill: '#ffffff',
-        stroke: '#600190', // Glowing color 
-        strokeThickness: 6, // Thickness of the glow
-        shadow: {
-          offsetX: 12,
-          offsetY: 12,
-          color: '#ffffff', // Glow color
-          blur: 10,
-          opacity: 0.7
-        }
-      }).setOrigin(0.5);
+      // Create 10 copies of the same word and animate them
+      Array.from({ length: 10 }).forEach(() => {
+        const fallingWord = scene.add.text(config.width / 2, startY, word, {
+          font: '75px Arial',
+          fill: '#ffffff',
+          stroke: '#600190', // Glowing color 
+          strokeThickness: 6, // Thickness of the glow
+          shadow: {
+            offsetX: 12,
+            offsetY: 12,
+            color: '#ffffff', // Glow color
+            blur: 10,
+            opacity: 0.7
+          }
+        }).setOrigin(0.5);
 
-      scene.tweens.add({
-        targets: fallingWord,
-        y: random(25, 75),
-        x: random(25, 905),
-        ease: 'Power1',
-        duration: 2000,
-        onComplete: () => {
-          fallingWord.setAlpha(0); // Fade out the word after it falls
-        },
+        const randomX = random(50, config.width - 50); // Random X position
+        const randomY = random(50, config.height - 150); // Random Y position
+
+        scene.tweens.add({
+          targets: fallingWord,
+          x: randomX,
+          y: randomY,
+          ease: 'Power1',
+          duration: 2000,
+          onComplete: () => {
+            fallingWord.setAlpha(0); // Fade out the word after it falls
+          },
+        });
       });
     }
 
@@ -295,18 +302,19 @@
       const userInputVowel = extractFinalVowel(userInput);
 
       if (currentWordVowel === userInputVowel) {
-        resultElement.textContent = `Correct! "${userInput}" rhymes with "${gameState.currentWord}".`;
+      //  resultElement.textContent = `Correct! "${userInput}" rhymes with "${gameState.currentWord}".`;
+        resultElement.textContent = `Ight`;
         resultElement.style.color = 'green';
         resultElement.style.textShadow = '0 0 10px white, 0 0 20px white, 0 0 30px white, 0 0 40px white'; // White glow
         gameState.score++;
         document.getElementById('score-display').textContent = `Streak: ${gameState.score}`;
-        animateFallingWord(scene, gameState.currentWord);
+        animateFallingWords(scene, gameState.currentWord);
         loadNewWord(scene);
         
       } else {
         gameState.score = 0;
         document.getElementById('score-display').textContent = `Streak: ${gameState.score}`;
-        resultElement.textContent = `Sorry, "${userInput}" does not rhyme with "${gameState.currentWord}".`;
+        resultElement.textContent = `You tuff as bricks, but dumb as mud :/`;
         resultElement.style.color = 'red';
 
         scene.tweens.add({
